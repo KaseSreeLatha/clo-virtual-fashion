@@ -1,9 +1,16 @@
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 
-const SearchBar = () => (
+interface SearchBarProps {
+  search: string;
+  onSearchChange: (value: string) => void;
+}
+
+const SearchBar = ({ search, onSearchChange }: SearchBarProps) => (
   <div className="relative">
     <input
       type="text"
+      value={search}
+      onChange={(e) => onSearchChange(e.target.value)}
       placeholder="Find the items you’re looking for"
       className="w-full bg-gray-900 text-white pr-10 pl-4 py-4 rounded-md outline-none placeholder:text-gray-400"
     />

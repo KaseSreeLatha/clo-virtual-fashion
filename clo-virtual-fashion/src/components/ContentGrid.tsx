@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import ContentCard from "./ContentCard";
 import FilterPanel from "./FilterPanel";
+import SearchBar from "./SearchBar";
 import { PricingOption } from "../constants";
 
 interface ApiItem {
@@ -13,24 +14,31 @@ interface ApiItem {
   price?: number;
 }
 
-const ContentGrid = () => {
-  const [items, setItems] = useState<ApiItem[]>([]);
-  const [searchParams, setSearchParams] = useSearchParams();
+const ITEMS_PER_PAGE = 12;
 
-  // 🟢 Step 3.1: Read filters from query
+const ContentGrid = () => {
+  const [allItems, setAllItems] = useState<ApiItem[]>([]);
+  const [visibleItems, setVisibleItems] = useState<ApiItem[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const observerRef = useRef<HTMLDivElement | null>(null);
+  const [page, setPage] = useState(1);
+
   const initialFilters = searchParams.get("filters")
     ?.split(",")
     .map((val) => parseInt(val, 10) as PricingOption)
     .filter((val) => !isNaN(val)) || [];
 
+  const initialSearch = searchParams.get("search") || "";
+
   const [selectedFilters, setSelectedFilters] = useState<PricingOption[]>(initialFilters);
+  const [searchKeyword, setSearchKeyword] = useState(initialSearch);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch("https://closet-recruiting-api.azurewebsites.net/api/data");
         const data = await res.json();
-        setItems(data);
+        setAllItems(data);
       } catch (err) {
         console.error("Failed to fetch content data", err);
       }
@@ -39,34 +47,61 @@ const ContentGrid = () => {
     fetchData();
   }, []);
 
-  // 🟢 Step 3.2: Update query param when filters change
   useEffect(() => {
-    if (selectedFilters.length > 0) {
-      setSearchParams({ filters: selectedFilters.join(",") });
-    } else {
-      setSearchParams({});
+    const query: any = {};
+    if (selectedFilters.length > 0) query.filters = selectedFilters.join(",");
+    if (searchKeyword.trim()) query.search = searchKeyword.trim();
+    setSearchParams(query);
+    setPage(1);
+  }, [selectedFilters, searchKeyword, setSearchParams]);
+
+  const filteredItems = allItems.filter((item) => {
+    const matchesFilter =
+      selectedFilters.length === 0 || selectedFilters.includes(item.pricingOption);
+
+    const matchesSearch =
+      searchKeyword.trim() === "" ||
+      item.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      item.creator.toLowerCase().includes(searchKeyword.toLowerCase());
+
+    return matchesFilter && matchesSearch;
+  });
+
+  useEffect(() => {
+    const start = 0;
+    const end = page * ITEMS_PER_PAGE;
+    setVisibleItems(filteredItems.slice(start, end));
+  }, [filteredItems, page]);
+
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const target = entries[0];
+    if (target.isIntersecting && visibleItems.length < filteredItems.length) {
+      setPage((prev) => prev + 1);
     }
-  }, [selectedFilters, setSearchParams]);
+  }, [visibleItems.length, filteredItems.length]);
+
+  useEffect(() => {
+    const option = { root: null, rootMargin: "100px", threshold: 0.1 };
+    const observer = new IntersectionObserver(handleObserver, option);
+    if (observerRef.current) observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [handleObserver]);
 
   const handleFilterChange = (option: PricingOption) => {
     setSelectedFilters((prev) =>
-      prev.includes(option)
-        ? prev.filter((f) => f !== option)
-        : [...prev, option]
+      prev.includes(option) ? prev.filter((f) => f !== option) : [...prev, option]
     );
   };
 
   const handleReset = () => {
     setSelectedFilters([]);
+    setSearchKeyword("");
   };
-
-  const filteredItems =
-    selectedFilters.length === 0
-      ? items
-      : items.filter((item) => selectedFilters.includes(item.pricingOption));
 
   return (
     <>
+      <SearchBar search={searchKeyword} onSearchChange={setSearchKeyword} />
+
       <FilterPanel
         selectedFilters={selectedFilters}
         onFilterChange={handleFilterChange}
@@ -74,25 +109,30 @@ const ContentGrid = () => {
       />
 
       <div className="mt-4 text-white">
-        <h2 className="text-lg font-semibold text-green-400 flex items-center space-x-2">
-          <span className="w-5 h-5 bg-green-500 rounded-full inline-flex items-center justify-center text-black text-sm font-semibold">
-            2
-          </span>
-          <span>Contents List</span>
-        </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mt-2 p-2 border border-green-500">
-          {filteredItems.map((item) => (
-            <ContentCard
-              key={item.id}
-              title={item.title}
-              author={item.creator}
-              pricingOption={item.pricingOption}
-              price={item.price}
-              imageUrl={item.imagePath}
-            />
-          ))}
+        <div className="mt-10 p-2  min-h-[200px]">
+          {visibleItems.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+              {visibleItems.map((item) => (
+                <ContentCard
+                  key={item.id}
+                  title={item.title}
+                  author={item.creator}
+                  pricingOption={item.pricingOption}
+                  price={item.price}
+                  imageUrl={item.imagePath}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-10 text-sm">
+              No matching content found.
+            </div>
+          )}
         </div>
+
+
+        <div ref={observerRef} className="h-10" />
       </div>
     </>
   );

@@ -7,9 +7,6 @@ const Header = () => (
             alt="CONECT Logo"
             className="h-8"
         />
-        <button className="bg-green-500 text-sm text-black px-3 py-2 rounded font-bold">
-            REQUIRED FEATURE
-        </button>
     </header>
 );
 
