@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import ContentCard from "./ContentCard";
 import FilterPanel from "./FilterPanel";
 import SearchBar from "./SearchBar";
+import SortDropdown from "./SortDropdown";
+import ContentSkeleton from "./ContentSkeleton";
 import { PricingOption } from "../constants";
 
 interface ApiItem {
@@ -22,6 +24,9 @@ const ContentGrid = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const observerRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 999]);
 
   const initialFilters = searchParams.get("filters")
     ?.split(",")
@@ -29,18 +34,23 @@ const ContentGrid = () => {
     .filter((val) => !isNaN(val)) || [];
 
   const initialSearch = searchParams.get("search") || "";
+  const initialSort = searchParams.get("sort") || "name";
 
   const [selectedFilters, setSelectedFilters] = useState<PricingOption[]>(initialFilters);
   const [searchKeyword, setSearchKeyword] = useState(initialSearch);
+  const [sortOption, setSortOption] = useState(initialSort);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const res = await fetch("https://closet-recruiting-api.azurewebsites.net/api/data");
         const data = await res.json();
         setAllItems(data);
+        setLoading(false);
       } catch (err) {
         console.error("Failed to fetch content data", err);
+        setLoading(false);
       }
     };
 
@@ -51,21 +61,60 @@ const ContentGrid = () => {
     const query: any = {};
     if (selectedFilters.length > 0) query.filters = selectedFilters.join(",");
     if (searchKeyword.trim()) query.search = searchKeyword.trim();
+    if (sortOption !== "name") query.sort = sortOption;
     setSearchParams(query);
     setPage(1);
-  }, [selectedFilters, searchKeyword, setSearchParams]);
+  }, [selectedFilters, searchKeyword, sortOption, setSearchParams]);
 
-  const filteredItems = allItems.filter((item) => {
-    const matchesFilter =
-      selectedFilters.length === 0 || selectedFilters.includes(item.pricingOption);
+  const filteredItems = allItems
+    .filter((item) => {
+      const matchesFilter =
+        selectedFilters.length === 0 || selectedFilters.includes(item.pricingOption);
 
-    const matchesSearch =
-      searchKeyword.trim() === "" ||
-      item.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      item.creator.toLowerCase().includes(searchKeyword.toLowerCase());
+      const matchesSearch =
+        searchKeyword.trim() === "" ||
+        item.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        item.creator.toLowerCase().includes(searchKeyword.toLowerCase());
 
-    return matchesFilter && matchesSearch;
-  });
+      const matchesPriceRange = (() => {
+        if (item.pricingOption === PricingOption.Paid) {
+          if (!selectedFilters.includes(PricingOption.Paid)) return true;
+          if (item.price === undefined) return false;
+          if (priceRange[1] === 999) {
+            return item.price >= priceRange[0];
+          }
+          return item.price >= priceRange[0] && item.price <= priceRange[1];
+        }
+        return true; 
+      })();
+
+      return matchesFilter && matchesSearch && matchesPriceRange;
+    })
+    .sort((a, b) => {
+      if (sortOption === "high") {
+        const aPrice = a.price ?? 0;
+        const bPrice = b.price ?? 0;
+        if (a.pricingOption === PricingOption.Paid && b.pricingOption === PricingOption.Paid) {
+          return bPrice - aPrice;
+        }
+        if (a.pricingOption === PricingOption.Paid) return -1;
+        if (b.pricingOption === PricingOption.Paid) return 1;
+        return a.pricingOption - b.pricingOption;
+      }
+
+      if (sortOption === "low") {
+        const aPrice = a.price ?? 0;
+        const bPrice = b.price ?? 0;
+        if (a.pricingOption === PricingOption.Paid && b.pricingOption === PricingOption.Paid) {
+          return aPrice - bPrice;
+        }
+        if (a.pricingOption === PricingOption.Paid) return -1;
+        if (b.pricingOption === PricingOption.Paid) return 1;
+        return a.pricingOption - b.pricingOption;
+      }
+
+      return a.title.localeCompare(b.title);
+    });
 
   useEffect(() => {
     const start = 0;
@@ -96,6 +145,8 @@ const ContentGrid = () => {
   const handleReset = () => {
     setSelectedFilters([]);
     setSearchKeyword("");
+    setPriceRange([0, 999]);
+    setSortOption("name");
   };
 
   return (
@@ -106,12 +157,20 @@ const ContentGrid = () => {
         selectedFilters={selectedFilters}
         onFilterChange={handleFilterChange}
         onReset={handleReset}
+        onPriceRangeChange={setPriceRange}
       />
 
-      <div className="mt-4 text-white">
+      <SortDropdown sortOption={sortOption} onSortChange={setSortOption} />
 
-        <div className="mt-10 p-2  min-h-[200px]">
-          {visibleItems.length > 0 ? (
+      <div className="mt-4">
+        <div className="mt-6 p-2 min-h-[200px]">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <ContentSkeleton key={index} />
+              ))}
+            </div>
+          ) : visibleItems.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
               {visibleItems.map((item) => (
                 <ContentCard
@@ -130,7 +189,6 @@ const ContentGrid = () => {
             </div>
           )}
         </div>
-
 
         <div ref={observerRef} className="h-10" />
       </div>

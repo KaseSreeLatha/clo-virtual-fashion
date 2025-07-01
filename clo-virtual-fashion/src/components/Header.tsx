@@ -1,7 +1,7 @@
 import logo from '../assets/logo.png';
 
 const Header = () => (
-    <header className="bg-black text-white px-6 py-4 flex justify-between items-center">
+    <header className="bg-neutral-950 px-3 py-4 flex justify-between items-center">
         <img
             src={logo}
             alt="CONECT Logo"

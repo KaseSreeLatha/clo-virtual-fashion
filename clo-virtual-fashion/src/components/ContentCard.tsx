@@ -14,27 +14,31 @@ const ContentCard = ({ title, author, pricingOption, price, imageUrl }: ContentC
       case PricingOption.Paid:
         return `$${price ?? "N/A"}`;
       case PricingOption.Free:
-        return <span className="text-white">FREE</span>;
+        return <span>FREE</span>;
       case PricingOption.ViewOnly:
-        return <span className="text-white">View Only</span>;
+        return <span>View Only</span>;
       default:
         return "N/A";
     }
   };
 
   return (
-    <div className="bg-gray-900 text-white rounded overflow-hidden shadow hover:shadow-lg transition-all">
-      <div className="aspect-[3/4] bg-white flex items-center justify-center overflow-hidden">
+    <div className="group rounded overflow-hidden shadow hover:shadow-lg transition-all text-white cursor-pointer">
+      <div className="aspect-[3/4] flex items-center justify-center overflow-hidden">
         {imageUrl ? (
-          <img src={imageUrl} alt={title} className="object-cover w-full h-full" />
+          <img
+            src={imageUrl}
+            alt={title}
+            className="object-cover w-full h-full transform transition-transform duration-300 ease-in-out group-hover:scale-105"
+          />
         ) : (
           <div className="text-gray-500">Image</div>
         )}
       </div>
 
-      <div className="bg-black px-3 py-2 flex justify-between items-start text-sm">
+      <div className="px-3 py-2 flex justify-between items-start text-sm">
         <div>
-          <p className="font-semibold">{title}</p>
+          <p className="font-semibold text-neutral-400">{title}</p>
           <p className="text-gray-400">{author}</p>
         </div>
         <p className="font-semibold">{getDisplayPrice()}</p>

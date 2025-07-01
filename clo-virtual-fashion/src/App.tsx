@@ -2,7 +2,7 @@ import Header from "./components/Header";
 import ContentGrid from "./components/ContentGrid";
 
 const App = () => (
-  <div className="bg-gray-950 min-h-screen text-white">
+  <div className="bg-neutral-900 min-h-screen">
     <Header />
     <main className="p-6">
       <ContentGrid />
