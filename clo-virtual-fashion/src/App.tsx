@@ -1,6 +1,5 @@
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
-import FilterPanel from "./components/FilterPanel";
 import ContentGrid from "./components/ContentGrid";
 
 const App = () => (
@@ -8,7 +7,6 @@ const App = () => (
     <Header />
     <main className="p-6">
       <SearchBar />
-      <FilterPanel />
       <ContentGrid />
     </main>
   </div>
